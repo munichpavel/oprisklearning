@@ -1,5 +1,5 @@
 # Set distribution data
-
+require(dplyr)
 #lambdas <- c(2,5,20, 500)
 lambdas <- c(50, 200, 500, 5000)
 lmus <- c(15, 12, 10, 8)
@@ -61,11 +61,7 @@ gen_le <- function(i,N_id, d, params_df){
 
 
 # Want a dataframe per day
-d <- 1
-
-#les_all <- lapply(1:n_days, function(d){
-  
-les_all <- lapply(1:10, function(d){
+les_all <- lapply(1:n_days, function(d){
   les_d <- lapply(1:4,function(i) gen_le(i, Ns[d,i], d, params_df) )
   # Return loss events on day d for all processes as dataframe
   rbind(les_d[[1]],
@@ -74,11 +70,17 @@ les_all <- lapply(1:10, function(d){
         les_d[[4]])
 })
 
-# les_d <- lapply(1:4,function(i) gen_le(i, Ns[d,i], params_df) )
-# les_d_df <- rbind(les_d[[1]],
-#                   les_d[[2]],
-#                   les_d[[3]],
-#                   les_d[[4]])
-# 
-#   
-# }
+
+# Has to be better way
+les_all_df <- le_df_empty
+for (d in 1:n_days){
+ les_all_df <- rbind(les_all_df, les_all[[d]]) 
+}
+
+# For fixed d define les up to and includeing day d, and losses for the year following day d
+d <- 365
+# Make when relative to d
+les_all_d <- les_all_df %>% mutate(when_rel = when - d)
+les_all_d$when <- NULL
+les_pre_d <- les_all_d %>% filter(when_rel <= 0)
+les_d_plus_1yr <- les_all_d %>% filter(when_rel > 0, when_rel <= 365)
