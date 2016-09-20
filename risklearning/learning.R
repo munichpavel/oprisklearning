@@ -17,7 +17,7 @@ params_df <- data.frame(lambdas = l_day, lmus = lmus, lsigs = lsigmas, cat1s = c
 # TODO: Use time-series objects instead?
 
 n_years <- 3
-n_days <- 356*n_years
+n_days <- 365*n_years
 
 # Simulate daily losses
 # Loss event data frame
