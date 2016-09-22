@@ -27,38 +27,37 @@ __license__ = "none"
 _logger = logging.getLogger(__name__)
 #%%
 
-# Define distributions
-poi = stats.poisson
-lnorm = stats.lognorm 
 
-# Parameters for simulation
-n_years = 1
-n_days = 365*n_years
-
-lambdas = [50.0, 200.0, 500.0, 5000.0] #Params for freq
-ldays = [l/n_days for l in lambdas]
-lmus = [15.0, 12.0, 10.0, 8.0]  # Params for sev
-sigs = [3.0, 2.0, 1.5, 1.2]
-
-
-
-#%%
-p_l1 = 0 # Dummy for now
-p_l2 = 3 # Select which process to simulate
-counts = poi(ldays[p_l2]).rvs(n_days)
-s = 1
-# Why are these so low???
-losses_day = [lnorm(lsigs[p_l2],loc=lmus[p_l2]).rvs(N) for N in counts]
-#%%
-day_list = []
-
-for d in range(0,n_days):
-    days = [d]*losses_day[d].size
-    process_l2 = [p_l2]*losses_day[d].size
-    process_l1 = [p_l1]*losses_day[d].size
-    day_list.append(pd.DataFrame({'losses': losses_day[d], 'when': days, 
-                       'l1': process_l1, 'l2': process_l2 }))
+def sim_losses(freq_param, sev_param, n_periods):
+    """ 
+    Simulate losses from actuarial model.
+    At present, the loss process is a compound Poisson process with 
+    lognormal severity distribution
+    
+    """
+    #
+    freq_rv = stats.poisson(freq_param) 
+    sev_rv = stats.lognorm(sev_param['logmu'], scale = sev_param['logsigma']) 
+    counts = freq_rv.rvs(n_periods)
+    losses_period = [sev_rv.rvs(N) for N in counts]
+    return(losses_period)
+    
+def gen_loss_events(freq_param, sev_param, n_periods, process_l1, process_l2):
+    """
+    Generate loss events and return as data frame 
+    """
+    loss_amts = sim_losses(freq_param, sev_param, n_periods)
+    
+    # For each period (typically a day), augment loss amounts with
+    # time of occurrence and process categories (levels 1 and 2)
+    period_list = []
+    for p in range(0,n_periods):
+        N = loss_amts[p].size #Number of losses in that period / day
+        ps = [p]*N
+        l1s = [process_l1]*N
+        l2s = [process_l2]*N
+        period_list.append(pd.DataFrame({'losses': loss_amts[p], 'when': ps,
+                       'l1': l1s, 'l2': l2s }))
                        
-# Convert to dataframe
-loss_events = pd.concat(day_list)
-
+    loss_df = pd.concat(period_list)
+    return(loss_df)

@@ -1,4 +1,8 @@
 # Add your requirements here like:
-# numpy
-# scipy>=0.9
+#risklearning
+#numpy == 1.11.1
+#scipy == 0.18.0
+#pandas == 0.18.1
 
+#pyscaffold>=2.5a0,<2.6a0
+#six >= 1.10.0
