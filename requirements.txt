@@ -6,3 +6,4 @@
 
 #pyscaffold>=2.5a0,<2.6a0
 #six >= 1.10.0
+#statsmodels == 0.6.1

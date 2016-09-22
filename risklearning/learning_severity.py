@@ -18,6 +18,8 @@ import numpy as np
 import scipy.stats as stats
 import pandas as pd
 import math
+
+from statsmodels.distributions.empirical_distribution import ECDF
 #from risklearning import __version__
 
 __author__ = "munichpavel"
@@ -41,23 +43,29 @@ def sim_losses(freq_param, sev_param, n_periods):
     counts = freq_rv.rvs(n_periods)
     losses_period = [sev_rv.rvs(N) for N in counts]
     return(losses_period)
-    
-def gen_loss_events(freq_param, sev_param, n_periods, process_l1, process_l2):
+
+
+def gen_loss_events(freq_params, sev_params, n_periods, process_l1, process_l2):
     """
-    Generate loss events and return as data frame 
+    Generate loss events and return as data frame
     """
+    #
+    freq_param = freq_params[process_l2]
+    sev_param = sev_params[process_l2]
+
     loss_amts = sim_losses(freq_param, sev_param, n_periods)
-    
+
     # For each period (typically a day), augment loss amounts with
     # time of occurrence and process categories (levels 1 and 2)
     period_list = []
-    for p in range(0,n_periods):
-        N = loss_amts[p].size #Number of losses in that period / day
-        ps = [p]*N
-        l1s = [process_l1]*N
-        l2s = [process_l2]*N
+    for p in range(0, n_periods):
+        N = loss_amts[p].size  # Number of losses in that period / day
+        ps = [p] * N
+        l1s = [process_l1] * N
+        l2s = [process_l2] * N
         period_list.append(pd.DataFrame({'losses': loss_amts[p], 'when': ps,
-                       'l1': l1s, 'l2': l2s }))
-                       
-    loss_df = pd.concat(period_list)
-    return(loss_df)
+                                         'l1': l1s, 'l2': l2s}))
+
+    loss_df = pd.concat(period_list, ignore_index=True)
+    #
+    return (loss_df)
