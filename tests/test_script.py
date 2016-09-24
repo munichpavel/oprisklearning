@@ -28,13 +28,23 @@ test_year = 2
 test_begin = (test_year - 1)*days_year + 1
 test_end = (test_year)*days_year
 
-train_data = l2_loss_events[l2_loss_events['when'] < test_begin]
-test_data = l2_loss_events[(l2_loss_events['when'] >= test_begin) & (l2_loss_events['when'] <= test_end) ]
+train = l2_loss_events[l2_loss_events['when'] < test_begin]
+train_p1 = l2_loss_events[(l2_loss_events['when'] >= test_begin) & (l2_loss_events['when'] <= test_end) ]
+
+sev_ecdf = ECDF(train_p1['losses'])
+train_y = sev_ecdf(train['losses'])
+
+# Reshape input data to work with nn implementation
+train_x1 = train.apply(lambda x: np.asarray(x), axis=1)
+train_x = np.asarray(train_x1)
+
+# Convert train_x and train_y into tuples as expected by SGD
+train_xy = zip(train_x, train_y)
 
 
 # Create network with 4 input nodes and 1 output nodes. Hidden nodes to be determined.
-
-net = net.Network([4,10,1])
-
-sev_ecdf = ECDF(test_data['losses'])
-cdf_test = sev_ecdf(test_data['losses'])
+net = net.Network([4,4,1])
+batch_size = 30
+epochs = 10
+eta = 3.0
+net.SGD(train_xy, batch_size, epochs, eta)
