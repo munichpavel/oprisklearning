@@ -30,7 +30,7 @@ _logger = logging.getLogger(__name__)
 #%%
 
 
-def sim_losses(freq_param, sev_param, n_periods):
+def sim_losses(freq_param, sev_param_initial, sev_param_final, n_tenors):
     """ 
     Simulate losses from actuarial model.
     At present, the loss process is a compound Poisson process with 
@@ -38,27 +38,38 @@ def sim_losses(freq_param, sev_param, n_periods):
     
     """
     #
+
+
     freq_rv = stats.poisson(freq_param) 
-    sev_rv = stats.lognorm(sev_param['logmu'], scale = sev_param['logsigma']) 
-    counts = freq_rv.rvs(n_periods)
-    losses_period = [sev_rv.rvs(N) for N in counts]
+    #sev_rv = stats.lognorm(sev_param['logmu'], scale = sev_param['logsigma'])
+    #sev_rv = stats.lognorm(sev_param['logsigma'], scale=sev_param['scale'])
+    counts = freq_rv.rvs(n_tenors)
+
+    # Generate severity parameters as function of time
+    scale_t = np.linspace(sev_param_initial['scale'], sev_param_final['scale'], num=n_tenors)
+    lsig_t = np.linspace(sev_param_initial['logsigma'], sev_param_final['logsigma'], num=n_tenors)
+
+    losses_period = [stats.lognorm(lsig_t[t], scale=scale_t[t]).rvs(counts[t]) for t in xrange(n_tenors)]
+
+#    losses_period = [stats.lognorm(lsig_t[t], scale = scale_t[t]).rvs(t) for t in xrange(n_tenors)]
     return(losses_period)
 
 
-def gen_loss_events(freq_params, sev_params, n_periods, process_l1, process_l2):
+def gen_loss_events(freq_params, sev_params_initial, sev_params_final, n_tenors, process_l1, process_l2):
     """
     Generate loss events and return as data frame
     """
     #
     freq_param = freq_params[process_l2]
-    sev_param = sev_params[process_l2]
+    sev_param_initial = sev_params_initial[process_l2]
+    sev_param_final = sev_params_final[process_l2]
 
-    loss_amts = sim_losses(freq_param, sev_param, n_periods)
+    loss_amts = sim_losses(freq_param, sev_param_initial, sev_param_final, n_tenors)
 
     # For each period (typically a day), augment loss amounts with
     # time of occurrence and process categories (levels 1 and 2)
     period_list = []
-    for p in range(0, n_periods):
+    for p in xrange(n_tenors):
         N = loss_amts[p].size  # Number of losses in that period / day
         ps = [p] * N
         l1s = [process_l1] * N
