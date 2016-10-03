@@ -39,37 +39,18 @@ _logger = logging.getLogger(__name__)
 
 #TODO: Document and clean up!!!
 
-def prep_count_data(counts_df, training_start, testing_stop):
-    
-    # TODO check col names, or add col name as argument
-    loss_counts_raw = counts_df[counts_df['current_delta'] >= training_start]
-    loss_counts_raw = counts_df[counts_df['current_delta'] < testing_stop]
-
-    
-    #%%
-    # Restrict to EDPM events
-    #l1_select = 'Execution Delivery and Process Management'
-    #l1_sel = 'External Fraud'
-    l1_sel = 'Clients Products and Business Practices'
-    l2_sel = ['Transaction Capture, Execution and Maintenance', 
-              'Suitability, Information Disclosure and Fiduciary Duty']
-    
-    #loss_counts_sel = loss_counts_raw[loss_counts_raw['OR Category L1'] == l1_sel]
-    loss_counts_sel = loss_counts_raw[(loss_counts_raw['OR Category L2'] == l2_sel[0]) 
-                                        | (loss_counts_raw['OR Category L2'] == l2_sel[1]) ]
-    #loss_counts_sel = loss_counts_raw
+def prep_count_data(counts_df, bin_tops):
     #%
     # Encode level 1 and level 2 loss categories
     le = preprocessing.LabelEncoder()
-    l1_codes = le.fit_transform(loss_counts_sel['OR Category L1'])
-    l2_codes = le.fit_transform(loss_counts_sel['OR Category L2'])
+    l1_codes = le.fit_transform(counts_df['OR Category L1'])
+    l2_codes = le.fit_transform(counts_df['OR Category L2'])
     ls = pd.DataFrame({'l1_codes': l1_codes, 'l2_codes': l2_codes})
-    
-    #%
+
     enc = preprocessing.OneHotEncoder(sparse = False)
     l_codes = pd.DataFrame(enc.fit_transform(ls))
     
-    loss_counts = pd.concat([loss_counts_raw, l_codes], axis = 1)
+    loss_counts = pd.concat([counts_df, l_codes], axis = 1)
     #%
     # Prep for neural network training
     cols_nn = ['counts', 'current_delta'] + list(range(l_codes.shape[1]))
@@ -80,18 +61,19 @@ def prep_count_data(counts_df, training_start, testing_stop):
     #% Bin count data
     
     # First create df with 
-    n_data_tenors = loss_counts_nn['current_delta'].max() - loss_counts_nn['current_delta'].min() + 1
+    #n_data_tenors = loss_counts_nn['current_delta'].max() - loss_counts_nn['current_delta'].min() + 1
     #
     l_codes_unique = l_codes.drop_duplicates()
     n_codes = l_codes_unique.shape[0]
-    l_codes_unique['index_new'] = range(n_codes)
+    #l_codes_unique['index_new'] = range(n_codes)
+    l_codes_unique.loc[:, 'index_new'] = range(n_codes)
     l_codes_unique = l_codes_unique.set_index('index_new')
     #%%
     
     # Create one df block per day with all l_codes
     nn_list = [add_tenor(t, l_codes_unique) for t in 
-        range(loss_counts_nn['current_delta'].min(), loss_counts_nn['current_delta'].max())]
-        
+        range(int(loss_counts_nn['current_delta'].min()), int(loss_counts_nn['current_delta'].max()))]
+
     data_nn = pd.concat(nn_list, axis = 0)
     # Reindex to avoid duplicates
     data_nn['index_new'] = range(data_nn.shape[0])
@@ -112,13 +94,13 @@ def prep_count_data(counts_df, training_start, testing_stop):
     #% Perform binning
     cts_max = data_nn_bins['counts'].max()
     
-    bin_tops = np.array([1,5,10,15])
-    bin_labels = list(range(len(bin_tops)))
+    bin_tops_np = np.array(bin_tops)
+    bin_labels = list(range(len(bin_tops_np)))
     
     cts = data_nn_bins['counts']
     
     # Note bins defined in "digitize" by lower <= x < upper
-    data_nn_bins['count_bin'] = np.digitize(cts, bin_tops)
+    data_nn_bins['count_bin'] = np.digitize(cts, bin_tops_np)
     # Drop counts
     data_nn_bins = data_nn_bins.drop('counts',1)
     
