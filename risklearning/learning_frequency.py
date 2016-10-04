@@ -1,20 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-This is a skeleton file that can serve as a starting point for a Python
-console script. To run this script uncomment the following line in the
-entry_points section in setup.cfg:
-
-    console_scripts =
-     fibonacci = risklearning.skeleton:run
-
-Then run `python setup.py install` which will install the command `fibonacci`
-inside your current environment.
-Besides console scripts, the header (i.e. until _logger...) of this file can
-also be used as template for Python modules.
-
-Note: This skeleton file can be safely removed if not needed!
-"""
 from __future__ import division, print_function, absolute_import
 
 import argparse
@@ -40,6 +25,23 @@ _logger = logging.getLogger(__name__)
 #TODO: Document and clean up!!!
 
 def prep_count_data(counts_df, bin_tops):
+    """
+    Prepares loss count data for neural network training
+
+    Args:
+        counts_df (pandas df): counts of events per day / category
+        bin_tops (list): upper bounds for binning
+        
+        Recall numpy.digitize defines bins by bottom <= x < top
+        
+    Returns:
+        List of 4 numpy arrays: training data (input / output) and testing data (input / output)
+        
+        Note that training and testing are split via negative tenor (training) 
+        and non-negative tenor (testing)
+    """
+
+    
     #%
     # Encode level 1 and level 2 loss categories
     le = preprocessing.LabelEncoder()
