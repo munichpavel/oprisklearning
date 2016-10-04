@@ -3,7 +3,7 @@ risklearning
 ============
 
 
-Add a short description here!
+A neural network implementation of operational risk modeling.
 
 
 Description
