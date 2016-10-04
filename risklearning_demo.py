@@ -20,13 +20,37 @@ import risklearning.learning_frequency as rlf
 #%%
 # Read in loss data (counts per day / loss category)
 
-days_year = 365
+tenors_horizon = 365 # (Time) tenors (e.g. 1 day) per model horizon (e.g. 1 year)
 loss_ct_file = 'data/event_counts.csv'
 loss_counts_raw = pd.read_csv(loss_ct_file)
 
+h_start = 10.0 # How many model horizons of past data to train
+h_end = 1.0 #How many model horizons of past data to test / validate
 
+t_start = -int(math.floor(h_start*tenors_horizon))
+t_end = int(math.floor(h_end*tenors_horizon))
+
+
+#%% Generate Poisson-distributed events
+lambda_init = 0.5 # intensity over tenor (e.g. day)
+lambda_final = 20 # intensity over tenor (e.g. day)
+n_tenors = t_end - t_start
+counts = rlf.sim_counts(lambda_init, lambda_final, n_tenors)
 #%%
+# Build df around counts
+l1s = ['Execution Delivery and Process Management']*n_tenors
+l2s = ['Transaction Capture, Execution and Maintenance']*n_tenors
+tenors = list(xrange(t_start, t_end))
+#%%
+counts_sim_df = pd.DataFrame({'current_delta': tenors,
+                              'OR Category L1': l1s, 'OR Category L2': l2s,
+                              'counts': counts
+                             })
+#%%                             
+bin_tops = [1,2,4,10, 100]
 
+x_train, y_train, x_test, y_test = rlf.prep_count_data(counts_sim_df, bin_tops)
+#%% Or read in loss data counts from file
 ## Restrict data
 l1_sel = 'Clients Products and Business Practices'
 l2_sel = ['Transaction Capture, Execution and Maintenance',
@@ -36,8 +60,6 @@ loss_counts_sel = loss_counts_raw[(loss_counts_raw['OR Category L2'] == l2_sel[0
                                   | (loss_counts_raw['OR Category L2'] == l2_sel[1])]
 # loss_counts_sel = loss_counts_raw
 
-t_start = -math.floor(2*days_year)
-t_end = math.floor(days_year/2)
 
 # TODO check col names, or add col name as argument
 loss_counts_sel = loss_counts_sel[(loss_counts_sel['current_delta'] >= t_start)
@@ -45,7 +67,7 @@ loss_counts_sel = loss_counts_sel[(loss_counts_sel['current_delta'] >= t_start)
 #loss_counts_sel = loss_counts_sel[loss_counts_sel['current_delta'] < t_end]
 
 #
-bin_tops = [1,2, 15]
+bin_tops = [1,15]
 
 x_train, y_train, x_test, y_test = rlf.prep_count_data(loss_counts_sel, bin_tops)
 #%% Set up neural network
@@ -53,7 +75,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
 from keras.optimizers import SGD
 #%%
-hlayer_len = [100]
+hlayer_len = [500]
 model = Sequential()
 model.add(Dense(hlayer_len[0], input_shape=(x_train.shape[1],)))
 model.add(Activation('relu')) # An "activation" is just a non-linear function applied to the output
@@ -65,6 +87,15 @@ model.add(Dense(hlayer_len[0]))
 model.add(Activation('relu'))
 model.add(Dropout(0.2))
 
+model.add(Dense(hlayer_len[0]))
+model.add(Activation('relu'))
+model.add(Dropout(0.2))
+
+model.add(Dense(hlayer_len[0]))
+model.add(Activation('relu'))
+model.add(Dropout(0.2))
+
+
 model.add(Dense(y_test.shape[1]))
 model.add(Activation('softmax')) # This special "softmax" activation among other things,
                                  # ensures the output is a valid probaility distribution, that is
@@ -75,9 +106,9 @@ sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 model.compile(loss='categorical_crossentropy', optimizer=sgd)
 #%%
 model.fit(x_train, y_train,
-          batch_size=32, nb_epoch=50,
+          batch_size=50, nb_epoch=100,
           show_accuracy=True, verbose=1,
           validation_data=(x_test, y_test))
-
+#%%
 # Look at probabilities
 proba = model.predict_proba(x_test, batch_size=32)

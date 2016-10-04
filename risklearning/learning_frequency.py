@@ -8,6 +8,7 @@ import logging
 
 import pandas as pd
 import numpy as np
+import scipy.stats as stats
 
 from sklearn import preprocessing
 
@@ -54,7 +55,6 @@ def prep_count_data(counts_df, bin_tops):
     # Select nn-relevant columns and sort by current_deltas
     loss_counts_nn = loss_counts[cols_nn].sort_values('current_delta')
     
-    
     #% Bin count data
     
     # First create df with 
@@ -74,7 +74,7 @@ def prep_count_data(counts_df, bin_tops):
     # Reindex to avoid duplicates
     data_nn['index_new'] = range(data_nn.shape[0])
     data_nn = data_nn.set_index('index_new')
-    
+
     # Bin data
     
     # Merge with loss_counts by tenor and level 1/2 codes
@@ -87,8 +87,9 @@ def prep_count_data(counts_df, bin_tops):
     data_nn_bins = data_nn_bins.drop('current_delta',1)
     # Replace nans with 0 for counts
     data_nn_bins['counts'] = data_nn_bins['counts'].fillna(0)
+
     #% Perform binning
-    cts_max = data_nn_bins['counts'].max()
+   # cts_max = data_nn_bins['counts'].max()
     
     bin_tops_np = np.array(bin_tops)
     bin_labels = list(range(len(bin_tops_np)))
@@ -99,18 +100,20 @@ def prep_count_data(counts_df, bin_tops):
     data_nn_bins['count_bin'] = np.digitize(cts, bin_tops_np)
     # Drop counts
     data_nn_bins = data_nn_bins.drop('counts',1)
-    
+   
     #% Split into training and testing
     data_train = data_nn_bins[data_nn_bins['tenor'] < 0]
     data_test = data_nn_bins[data_nn_bins['tenor'] >= 0]
+    
     x_train = data_train.drop('count_bin',1)
-    y_train_int = data_train['count_bin']
-    
-    # Encode categorical data (event categories) 
-    
+    #y_train_int = data_train['count_bin']
+
+    x_train_df = data_train.drop('count_bin',1)    
+    # Encode bins with one-hot-encoding
+    #TODO check on error with simulated loss counts
     enc = preprocessing.OneHotEncoder(sparse = False)
-    x_train_df = data_train.drop('count_bin',1)
     y_train_df = bins2vecs(data_train['count_bin'], bin_labels, enc)
+    
     x_test_df = data_test.drop('count_bin',1)
     y_test_df  = bins2vecs(data_test['count_bin'], bin_labels, enc)
     #%% Convert to numpy arrays for keras / tensorflow
@@ -121,7 +124,7 @@ def prep_count_data(counts_df, bin_tops):
     
     return([x_train, y_train, x_test, y_test])
 
-
+#%%
 def bins2vecs(bin_df, bin_labels, enc):
         enc.fit_transform(pd.DataFrame(bin_labels))
         bin_list = [pd.DataFrame(enc.transform(b)) for b in bin_df]
@@ -135,4 +138,13 @@ def add_tenor(tenor, df):
     n_rows = df.shape[0]
     tenor_df = pd.DataFrame({'tenor':np.repeat(tenor, n_rows)})
     return(pd.concat([df, tenor_df], axis = 1))
-
+#%%
+def sim_counts(freq_param_init, freq_param_final, n_tenors):
+    """
+    Simulate Poisson process with linearly changing intensity parameter
+    """
+    freq_rv = stats.poisson
+    lambda_ts = np.linspace(freq_param_init, freq_param_final, num=n_tenors)
+    counts = [freq_rv(l_t).rvs() for l_t in lambda_ts]
+    return(counts)
+    
