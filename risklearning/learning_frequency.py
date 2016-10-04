@@ -22,8 +22,6 @@ __license__ = "none"
 
 _logger = logging.getLogger(__name__)
 
-#TODO: Document and clean up!!!
-
 def prep_count_data(counts_df, bin_tops):
     """
     Prepares loss count data for neural network training
@@ -41,8 +39,6 @@ def prep_count_data(counts_df, bin_tops):
         and non-negative tenor (testing)
     """
 
-    
-    #%
     # Encode level 1 and level 2 loss categories
     le = preprocessing.LabelEncoder()
     l1_codes = le.fit_transform(counts_df['OR Category L1'])
@@ -51,9 +47,8 @@ def prep_count_data(counts_df, bin_tops):
 
     enc = preprocessing.OneHotEncoder(sparse = False)
     l_codes = pd.DataFrame(enc.fit_transform(ls))
-    
     loss_counts = pd.concat([counts_df, l_codes], axis = 1)
-    #%
+    
     # Prep for neural network training
     cols_nn = ['counts', 'current_delta'] + list(range(l_codes.shape[1]))
     # Select nn-relevant columns and sort by current_deltas
@@ -67,10 +62,9 @@ def prep_count_data(counts_df, bin_tops):
     #
     l_codes_unique = l_codes.drop_duplicates()
     n_codes = l_codes_unique.shape[0]
-    #l_codes_unique['index_new'] = range(n_codes)
+    
     l_codes_unique.loc[:, 'index_new'] = range(n_codes)
     l_codes_unique = l_codes_unique.set_index('index_new')
-    #%%
     
     # Create one df block per day with all l_codes
     nn_list = [add_tenor(t, l_codes_unique) for t in 
@@ -80,14 +74,14 @@ def prep_count_data(counts_df, bin_tops):
     # Reindex to avoid duplicates
     data_nn['index_new'] = range(data_nn.shape[0])
     data_nn = data_nn.set_index('index_new')
-    #%
+    
     # Bin data
     
     # Merge with loss_counts by tenor and level 1/2 codes
     #data_bins = pd.concat([data_nn, loss_counts_nn], axis = 1)
     left_cols = ['tenor'] + list(range(l_codes.shape[1]))
     right_cols = ['current_delta'] + list(range(l_codes.shape[1]))
-    #% 
+     
     data_nn_bins = data_nn.merge(loss_counts_nn, left_on = left_cols, right_on = right_cols, how = 'left')
     # 'current deltas' has nans wherever no loss for given category / tenor
     data_nn_bins = data_nn_bins.drop('current_delta',1)
@@ -112,7 +106,7 @@ def prep_count_data(counts_df, bin_tops):
     x_train = data_train.drop('count_bin',1)
     y_train_int = data_train['count_bin']
     
-    # 
+    # Encode categorical data (event categories) 
     
     enc = preprocessing.OneHotEncoder(sparse = False)
     x_train_df = data_train.drop('count_bin',1)
@@ -133,7 +127,7 @@ def bins2vecs(bin_df, bin_labels, enc):
         bin_list = [pd.DataFrame(enc.transform(b)) for b in bin_df]
         bin_vecs = pd.concat(bin_list, ignore_index = True)
         return(bin_vecs)
-    #
+    
 def add_tenor(tenor, df):
     """
     Warning: DFs must have the same indices: TODO fix this
@@ -142,4 +136,3 @@ def add_tenor(tenor, df):
     tenor_df = pd.DataFrame({'tenor':np.repeat(tenor, n_rows)})
     return(pd.concat([df, tenor_df], axis = 1))
 
-#%
