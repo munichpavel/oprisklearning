@@ -113,9 +113,10 @@ def prep_count_data(counts_df, bin_tops):
     #TODO check on error with simulated loss counts
     enc = preprocessing.OneHotEncoder(sparse = False)
     y_train_df = bins2vecs(data_train['count_bin'], bin_labels, enc)
-    
+    #y_train_df = data_train['count_bin'] # No encoding, keep metric on bins
     x_test_df = data_test.drop('count_bin',1)
     y_test_df  = bins2vecs(data_test['count_bin'], bin_labels, enc)
+    #y_test_df = data_test['count_bin'] # No encoding, keep metric on bins
     #%% Convert to numpy arrays for keras / tensorflow
     x_train = x_train_df.as_matrix()
     y_train = y_train_df.as_matrix()
