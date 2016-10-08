@@ -8,11 +8,14 @@ Created on Fri Sep 30 09:16:49 2016
 %cd /home/pavel/Code/Python/risklearning
 
 #%%
-import pandas as pd
+import scipy.stats as stats
 import numpy as np
+import pandas as pd
+
+from pandas_ply import install_ply, X, sym_call
+install_ply(pd)
 
 from sklearn import preprocessing
-
 import math
 
 import risklearning.learning_frequency as rlf
@@ -29,8 +32,8 @@ t_end = int(math.floor(h_end*tenors_horizon))
 
 
 #% Generate Poisson-distributed events
-lambda_init = 0.2 # intensity over tenor (e.g. day)
-lambda_final = 0.2 # intensity over tenor (e.g. day)
+lambda_init = 0.5 # intensity over tenor (e.g. day)
+lambda_final = 0.5 # intensity over tenor (e.g. day)
 n_tenors = t_end - t_start
 counts = rlf.sim_counts(lambda_init, lambda_final, n_tenors)
 #%
@@ -43,8 +46,26 @@ counts_sim_df = pd.DataFrame({'t': tenors,
                               'OR Category L1': l1s, 'OR Category L2': l2s,
                               'counts': counts
                              })
-#%                             
-bin_tops = [1,2,3,4,5,6,7,100]
+#%% Do MLE (simple average for Poisson process
+n_tenors_train = -t_start
+n_tenors_test = t_end
+counts_train = (counts_sim_df.ply_where(counts_sim_df.t < 0)).groupby('OR Category L2').sum()
+counts_test =  counts_sim_df.ply_where(counts_sim_df.t >= 0).groupby('OR Category L2').sum()
+
+lambdas_train = counts_train['counts']/n_tenors_train
+lambdas_test = counts_train['counts']/n_tenors_test
+
+bin_tops = [1,6,101]
+# Recall that digitize defines bins by lower <= x < upper
+count_tops =[count - 1 for count in bin_tops]
+
+# Calculate bin probabilities from MLE poisson
+poi_mle = stats.poisson(lambdas_train)
+poi_tops = poi_mle.cdf(count_tops)
+poi_tops_shifted = poi_mle.cdf(count_tops[1:])
+poi_bins = np.insert(poi_tops_shifted - poi_tops[:-1], 0, poi_tops[0])
+#%% Prep for nn training                             
+
 
 x_train, y_train, x_test, y_test = rlf.prep_count_data(counts_sim_df, bin_tops)
 
