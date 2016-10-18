@@ -25,6 +25,7 @@ import numpy as np
 import scipy.stats as stats
 import math
 
+import ggplot as gg
 
 # ## Set up frequency distribution to generate samples
 
@@ -83,15 +84,21 @@ count_tops =[count - 1 for count in bin_tops]
 
 # Calculate bin probabilities from MLE poisson
 poi_mle = stats.poisson(lambdas_train)
-poi_tops = poi_mle.cdf(count_tops)
-poi_tops_shifted = poi_mle.cdf(count_tops[1:])
-poi_bins = np.insert(poi_tops_shifted - poi_tops[:-1], 0, poi_tops[0])
-
-#mle_probs = pd.DataFrame({'Count Top': [t-1 for t in bin_tops], 'Probs': poi_bins})
-mle_probs = pd.DataFrame(poi_bins, index = [t-1 for t in bin_tops])
+poi_bins = rlf.bin_probs(poi_mle, bin_tops)
+#%%    
+mle_probs = pd.DataFrame({'Count Top': [t-1 for t in bin_tops], 'Probs': poi_bins})
+#mle_probs = pd.DataFrame(poi_bins, index = [t-1 for t in bin_tops], columns = ['Prob'])
 mle_probs.transpose()
 
+# Visualize pdf (w.r.t. bins)
+gg.ggplot(mle_probs, gg.aes(x='Count Top',weight='Probs')) \
+    + gg.geom_bar()
+# Note bug re: stat = 'identity' in ggplot: 
+#   http://stackoverflow.com/questions/22599521/how-do-i-create-a-bar-chart-in-python-ggplot
 
+#%% Compare to "true"
+#true_poi_bins = rlf.bin_probs(stats.poisson(
+#%%
 # ## Prep simulated losses for neural network
 # 
 # For example
