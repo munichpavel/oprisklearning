@@ -45,7 +45,9 @@ t_end = int(math.floor(h_end*tenors_horizon))
 lambda_init = 1 # intensity over tenor (e.g. day)
 lambda_final = 4 # intensity over tenor (e.g. day)
 n_tenors = t_end - t_start
-counts = rlf.sim_counts(lambda_init, lambda_final, n_tenors)
+lambda_ts = np.linspace(lambda_init, lambda_final, num=n_tenors)
+freq_rv = stats.poisson
+counts = rlf.sim_counts(lambda_ts, freq_rv)
 
 # Build df around counts, level 1 and 2 categorization of Operational Risk events
 l1s = ['Execution Delivery and Process Management']*n_tenors
@@ -86,7 +88,7 @@ count_tops =[count - 1 for count in bin_tops]
 poi_mle = stats.poisson(lambdas_train)
 poi_bins = rlf.bin_probs(poi_mle, bin_tops)
 #%%    
-mle_probs = pd.DataFrame({'Count Top': [t-1 for t in bin_tops], 'Probs': poi_bins})
+mle_probs = pd.DataFrame({'Count Top': count_tops, 'Probs': poi_bins})
 #mle_probs = pd.DataFrame(poi_bins, index = [t-1 for t in bin_tops], columns = ['Prob'])
 mle_probs.transpose()
 
@@ -97,7 +99,27 @@ gg.ggplot(mle_probs, gg.aes(x='Count Top',weight='Probs')) \
 #   http://stackoverflow.com/questions/22599521/how-do-i-create-a-bar-chart-in-python-ggplot
 
 #%% Compare to "true"
-#true_poi_bins = rlf.bin_probs(stats.poisson(
+tenor = 0
+true_poi_bins_0 = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+tenor]), bin_tops)
+
+true_probs = pd.DataFrame({'Tenor': tenor, 'Count Top': count_tops, \
+                            'Probs': true_poi_bins_0}, \
+                            index = range(tenor*len(count_tops), \
+                                    tenor*len(count_tops) + len(count_tops)))
+                            #%%
+tenor = 1
+true_poi_bins_1 = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+tenor]), bin_tops)
+true_probs_1 = pd.DataFrame({'Tenor': tenor, 'Count Top': count_tops, \
+                            'Probs': true_poi_bins_1}, \
+                            index = range(tenor*len(count_tops), \
+                                    tenor*len(count_tops) + len(count_tops)))
+
+
+#%%
+gg.ggplot(true_probs, gg.aes(x='Count Top',weight='Probs')) \
+    + gg.facet_grid('Tenor') \
+    + gg.geom_bar()
+
 #%%
 # ## Prep simulated losses for neural network
 # 
