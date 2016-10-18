@@ -150,3 +150,17 @@ def sim_counts(freq_param_init, freq_param_final, n_tenors):
     counts = [freq_rv(l_t).rvs() for l_t in lambda_ts]
     return(counts)
     
+#%%
+def bin_probs(rv, bin_tops):
+    """
+    Calculates pdf of random variable w.r.t. bin_tops
+    
+    Note that binning (a la numpy.digitize) follows convention bottom <= x < top
+    """
+    count_tops = [top - 1 for top in bin_tops]
+    prob_tops = rv.cdf(count_tops)
+    prob_left_shift = rv.cdf(count_tops[1:])
+    prob_bins = np.insert(prob_left_shift - prob_tops[:-1], 0, prob_tops[0])
+    return(prob_bins)
+
+    
