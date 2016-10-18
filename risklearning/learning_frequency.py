@@ -141,13 +141,11 @@ def add_tenor(tenor, df):
     tenor_df = pd.DataFrame({'tenor':np.repeat(tenor, n_rows)})
     return(pd.concat([df, tenor_df], axis = 1))
 #%%
-def sim_counts(freq_param_init, freq_param_final, n_tenors):
+def sim_counts(freq_param_ts, freq_rv):
     """
-    Simulate Poisson process with linearly changing intensity parameter
+    Simulate count process with non-stationary parameter (currently only 1d)
     """
-    freq_rv = stats.poisson
-    lambda_ts = np.linspace(freq_param_init, freq_param_final, num=n_tenors)
-    counts = [freq_rv(l_t).rvs() for l_t in lambda_ts]
+    counts = [freq_rv(l_t).rvs() for l_t in freq_param_ts]
     return(counts)
     
 #%%
