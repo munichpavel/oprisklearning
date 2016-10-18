@@ -80,7 +80,7 @@ counts_test =  (counts_sim_df[counts_sim_df.t >= 0]).groupby('OR Category L2').s
 lambdas_train = counts_train['counts']/n_tenors_train
 lambdas_test = counts_train['counts']/n_tenors_test
 
-bin_tops = [1,2,3,4,5,6,10,101]
+bin_tops = [1,2,3,4,5,6,7,8,9,10,15,101]
 # Recall that digitize (used later) defines bins by lower <= x < upper
 count_tops =[count - 1 for count in bin_tops]
 
@@ -91,7 +91,7 @@ poi_bins = rlf.bin_probs(poi_mle, bin_tops)
 mle_probs = pd.DataFrame({'Count Top': count_tops, 'Probs': poi_bins})
 #mle_probs = pd.DataFrame(poi_bins, index = [t-1 for t in bin_tops], columns = ['Prob'])
 mle_probs.transpose()
-
+mle_probs_vals = list(mle_probs.Probs)
 # Visualize pdf (w.r.t. bins)
 gg.ggplot(mle_probs, gg.aes(x='Count Top',weight='Probs')) \
     + gg.geom_bar()
@@ -102,23 +102,27 @@ gg.ggplot(mle_probs, gg.aes(x='Count Top',weight='Probs')) \
 tenor = 0
 true_poi_bins_0 = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+tenor]), bin_tops)
 
-true_probs = pd.DataFrame({'Tenor': tenor, 'Count Top': count_tops, \
-                            'Probs': true_poi_bins_0}, \
+true_probs_0 = pd.DataFrame({'Tenor': tenor, 'Count Top': count_tops, \
+                            'Probs': true_poi_bins_0, 'Probs MLE': mle_probs_vals}, \
                             index = range(tenor*len(count_tops), \
                                     tenor*len(count_tops) + len(count_tops)))
                             #%%
-tenor = 1
+tenor = t_end-1
 true_poi_bins_1 = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+tenor]), bin_tops)
 true_probs_1 = pd.DataFrame({'Tenor': tenor, 'Count Top': count_tops, \
-                            'Probs': true_poi_bins_1}, \
+                            'Probs': true_poi_bins_1, 'Probs MLE': mle_probs_vals}, \
                             index = range(tenor*len(count_tops), \
                                     tenor*len(count_tops) + len(count_tops)))
 
-
+#%%
+true_probs = pd.concat([true_probs_0, true_probs_1])
 #%%
 gg.ggplot(true_probs, gg.aes(x='Count Top',weight='Probs')) \
     + gg.facet_grid('Tenor') \
-    + gg.geom_bar()
+    + gg.geom_bar() \
+    + gg.geom_step(gg.aes(y='Probs MLE')) \
+    + gg.scale_x_continuous(limits = (0,len(count_tops)))
+   # + gg.geom_bar(gg.aes(x='Count Top', weight='Probs MLE', position = 'dodge'))
 
 #%%
 # ## Prep simulated losses for neural network
