@@ -122,28 +122,5 @@ model.fit(x_train, y_train,
 #%%          
 # Look at probabilities
 proba = model.predict_proba(x_test, batch_size=32)
-
-#%% Or read in loss data counts from file
-loss_ct_file = 'data/event_counts.csv'
-loss_counts_raw = pd.read_csv(loss_ct_file)
-
-
-## Restrict data
-l1_sel = 'Clients Products and Business Practices'
-l2_sel = ['Transaction Capture, Execution and Maintenance',
-          'Suitability, Information Disclosure and Fiduciary Duty']
-
-loss_counts_sel = loss_counts_raw[(loss_counts_raw['OR Category L2'] == l2_sel[0])
-                                  | (loss_counts_raw['OR Category L2'] == l2_sel[1])]
-# loss_counts_sel = loss_counts_raw
-
-
-# TODO check col names, or add col name as argument
-loss_counts_sel = loss_counts_sel[(loss_counts_sel['t'] >= t_start)
-                                &(loss_counts_sel['t'] < t_end)]
-#loss_counts_sel = loss_counts_sel[loss_counts_sel['t'] < t_end]
-
-#
-bin_tops = [1,15]
-
-x_train, y_train, x_test, y_test = rlf.prep_count_data(loss_counts_sel, bin_tops)
+#%%
+nn_probs = pd.DataFrame(proba, index = range(0,t_end-1), columns = )
