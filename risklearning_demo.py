@@ -113,6 +113,20 @@ true_probs_1 = pd.DataFrame({'Tenor': tenor, 'Count Top': count_tops, \
                             'Probs': true_poi_bins_1, 'Probs MLE': mle_probs_vals}, \
                             index = range(tenor*len(count_tops), \
                                     tenor*len(count_tops) + len(count_tops)))
+                                    
+#%% Now done below after NN
+true_list = []
+for t in range(0, t_end):
+#for t in range(0, 2):
+    true_poi_bins_t = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+t]), bin_tops)
+    true_probs_t = pd.DataFrame({'Tenor': t, 'Count Top': count_tops, \
+                            'Probs': true_poi_bins_0, 'Probs MLE': mle_probs_vals}, \
+                            index = range(t*len(count_tops), \
+                                    t*len(count_tops) + len(count_tops)))
+    true_list.append(true_probs_t)
+    
+true_probs = pd.concat(true_list)
+                            
 
 #%%
 true_probs = pd.concat([true_probs_0, true_probs_1])
@@ -201,21 +215,52 @@ proba
 
 # In[9]:
 
-nn_probs = pd.DataFrame(proba, index = range(0,t_end-1), columns = [t-1 for t in bin_tops])
+#%% Convert proba from wide to long and append to other probs
+# TODO: Missing last tenor in nn proba (already in x_test, y_test)
+probs_list = []
+
+for t in range(proba.shape[0]):
+    nn_probs_t = proba[t]    
+    true_bins_t = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+t]), bin_tops)
+    probs_t = pd.DataFrame({'Tenor': t, 'Count Top': count_tops, \
+                            'True Probs': true_bins_t, \
+                            'Probs NN': nn_probs_t, \
+                            'Probs MLE': mle_probs_vals}, \
+                            index = range(t*len(count_tops), \
+                                    t*len(count_tops) + len(count_tops)))
+    probs_list.append(probs_t)
+
+probs = pd.concat(probs_list)
+#%%
+probs_small = probs[probs.Tenor > 360 ]
+#%%
+gg.ggplot(probs_small, gg.aes(x='Count Top',weight='True Probs')) \
+    + gg.facet_grid('Tenor') \
+    + gg.geom_bar() \
+    + gg.geom_step(gg.aes(y='Probs MLE', color = 'red')) \
+    + gg.geom_step(gg.aes(y='Probs NN', color = 'blue')) \
+    + gg.scale_x_continuous(limits = (0,len(count_tops)))
+
+#    + gg.geom_step(gg.aes(y='Probs NN')) \ 
+
+
+#%%
+
+#nn_probs = pd.DataFrame(proba, index = range(0,t_end-1), columns = [t-1 for t in bin_tops])
 # Heads (i.e. starting from present)
-nn_probs.head()
+#nn_probs.head()
 
 
 # In[10]:
 
 # Tails (i.e. going to end of model horizon of 1 yr)
-nn_probs.tail()
+#nn_probs.tail()
 
 
 # In[11]:
 
 # And what MLE told us before
-mle_probs.transpose()
+#mle_probs.transpose()
 
 
 # ## Summary and next steps
