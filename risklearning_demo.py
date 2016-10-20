@@ -168,7 +168,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
 from keras.optimizers import SGD
 
-hlayer_len = [100] # As series in anticipation of different sized layers
+hlayer_len = [10] # As series in anticipation of different sized layers
 
 # Number of nodes in output layer: if series, 1, else number of cols
 out_layer_len = 1 if len(y_train.shape)==1 else y_train.shape[1]
@@ -194,10 +194,11 @@ model.add(Activation('softmax'))
 sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
 # For categorical target
-model.compile(loss='categorical_crossentropy', optimizer=sgd)
+#model.compile(loss='categorical_crossentropy', optimizer=sgd)
+model.compile(loss='categorical_crossentropy', optimizer='adagrad')
 
 model.fit(x_train, y_train,
-          batch_size=32, nb_epoch=4,
+          batch_size=32, nb_epoch=100,
           show_accuracy=True, verbose=1,
           validation_data=(x_test, y_test))
 
@@ -206,35 +207,69 @@ model.fit(x_train, y_train,
 # 
 # If the neural network has learned anything, we will see that the probility distribution shifts over time to higher buckets.
 
-# In[8]:
+## In[8]:
 
 proba = model.predict_proba(x_test, batch_size=32)
 proba
 
 
 
-# In[9]:
+## In[9]:
 
-#%% Convert proba from wide to long and append to other probs
+#% Convert proba from wide to long and append to other probs
 # TODO: Missing last tenor in nn proba (already in x_test, y_test)
 probs_list = []
+kl_mle_list = []
+kl_nn_list = []
 
 for t in range(proba.shape[0]):
     nn_probs_t = proba[t]    
     true_bins_t = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+t]), bin_tops)
     probs_t = pd.DataFrame({'Tenor': t, 'Count Top': count_tops, \
-                            'True Probs': true_bins_t, \
+                            'Probs True': true_bins_t, \
                             'Probs NN': nn_probs_t, \
                             'Probs MLE': mle_probs_vals}, \
                             index = range(t*len(count_tops), \
                                     t*len(count_tops) + len(count_tops)))
     probs_list.append(probs_t)
+    # Calculate KL divergences
+    kl_mle_list.append(stats.entropy(true_bins_t, mle_probs_vals))
+    kl_nn_list.append(stats.entropy(true_bins_t, nn_probs_t))
 
 probs = pd.concat(probs_list)
+#%
+# KL divergences
+# TODO Why doesn't nn test data have last tenor?
+kl_df = pd.DataFrame({'Tenor': range(0, t_end-1), \
+                      'KL MLE': kl_mle_list, \
+                      'KL NN': kl_nn_list})
+
+print kl_df.head()
+
+print kl_df.tail()                      
+#%%                      
+# Plot KL divergences
+gg.ggplot(kl_df, gg.aes(x='Tenor')) \
+    + gg.geom_step(gg.aes(y='KL MLE', color = 'red')) \
+    + gg.geom_step(gg.aes(y='KL NN', color = 'blue'))
+#%% Compare pdf plots
+
+probs_head = probs[probs.Tenor < 4 ]
+
+gg.ggplot(probs_head, gg.aes(x='Count Top',weight='Probs True')) \
+    + gg.facet_grid('Tenor') \
+    + gg.geom_bar() \
+    + gg.geom_step(gg.aes(y='Probs MLE', color = 'red')) \
+    + gg.geom_step(gg.aes(y='Probs NN', color = 'blue')) \
+    + gg.scale_x_continuous(limits = (0,len(count_tops)))
+
+#    + gg.geom_step(gg.aes(y='Probs NN')) \ 
+
 #%%
-probs_small = probs[probs.Tenor > 360 ]
-#%%
-gg.ggplot(probs_small, gg.aes(x='Count Top',weight='True Probs')) \
+
+probs_tail = probs[probs.Tenor > 360 ]
+
+gg.ggplot(probs_tail, gg.aes(x='Count Top',weight='Probs True')) \
     + gg.facet_grid('Tenor') \
     + gg.geom_bar() \
     + gg.geom_step(gg.aes(y='Probs MLE', color = 'red')) \
