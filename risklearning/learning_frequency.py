@@ -162,3 +162,44 @@ def bin_probs(rv, bin_tops):
     return(prob_bins)
 
     
+#%%
+def rl_train_net(x_train, y_train, x_test, y_test, layer_shapes, \
+                batch_size = 32, n_epoch=10, \
+                optimizer='adagrad', dropout = 0.2,\
+                loss_fn = 'categorical_crossentropy'):
+    """
+    
+    """
+    from keras.models import Sequential
+    from keras.layers import Dense, Activation, Dropout
+   
+    # Number of nodes in output layer: if series, 1, else number of cols
+    out_layer_len = 1 if len(y_train.shape)==1 else y_train.shape[1]
+    model = Sequential()
+    model.add(Dense(layer_shapes[0], input_shape=(x_train.shape[1],)))
+    model.add(Activation('relu')) # An "activation" is just a non-linear function applied to the output
+                              # of the layer above. Here, with a "rectified linear unit",
+                              # we clamp all values below 0 to 0.
+    model.add(Dropout(dropout))   # Default dropout parameter
+
+    #% Middle layers
+    for layer_size in layer_shapes:                           
+        model.add(Dense(layer_size))
+        model.add(Activation('relu'))
+        model.add(Dropout(dropout))
+
+    # Output layer
+    model.add(Dense(out_layer_len))
+    model.add(Activation('softmax')) 
+
+
+    model.compile(loss= loss_fn, optimizer=optimizer)
+    # But with keras verbose = 1 for larger networks 
+    model.fit(x_train, y_train,
+          batch_size=batch_size, nb_epoch=n_epoch,
+          show_accuracy=True, verbose=2,
+          validation_data=(x_test, y_test))
+
+    proba = model.predict_proba(x_test, batch_size=32)
+    
+    return({'model': model, 'probs_nn': proba})    

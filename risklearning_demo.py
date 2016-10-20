@@ -27,6 +27,7 @@ import math
 
 import ggplot as gg
 
+
 # ## Set up frequency distribution to generate samples
 
 # In[3]:
@@ -164,54 +165,16 @@ x_train, y_train, x_test, y_test = rlf.prep_count_data(counts_sim_df, bin_tops)
 
 # In[7]:
 
-from keras.models import Sequential
-from keras.layers import Dense, Activation, Dropout
+
+
+#%%
 from keras.optimizers import SGD
-
-hlayer_len = [10] # As series in anticipation of different sized layers
-
-# Number of nodes in output layer: if series, 1, else number of cols
-out_layer_len = 1 if len(y_train.shape)==1 else y_train.shape[1]
-model = Sequential()
-model.add(Dense(hlayer_len[0], input_shape=(x_train.shape[1],)))
-model.add(Activation('relu')) # An "activation" is just a non-linear function applied to the output
-                              # of the layer above. Here, with a "rectified linear unit",
-                              # we clamp all values below 0 to 0.
-                           
-model.add(Dropout(0.2))   # Default dropout parameter
-model.add(Dense(hlayer_len[0]))
-model.add(Activation('relu'))
-model.add(Dropout(0.2))
-
-model.add(Dense(hlayer_len[0]))
-model.add(Activation('relu'))
-model.add(Dropout(0.2))
-
-
-model.add(Dense(out_layer_len))
-model.add(Activation('softmax')) 
-
 sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
-# For categorical target
-#model.compile(loss='categorical_crossentropy', optimizer=sgd)
-model.compile(loss='categorical_crossentropy', optimizer='adagrad')
-
-model.fit(x_train, y_train,
-          batch_size=32, nb_epoch=100,
-          show_accuracy=True, verbose=1,
-          validation_data=(x_test, y_test))
-
-
-# ## Neural network frequency distribution
-# 
-# If the neural network has learned anything, we will see that the probility distribution shifts over time to higher buckets.
-
-## In[8]:
-
-proba = model.predict_proba(x_test, batch_size=32)
-proba
-
+rl_net = rlf.rl_train_net(x_train, y_train, x_test, y_test, [150], \
+                    n_epoch = 200)
+#%%
+proba = rl_net['probs_nn']
 
 
 ## In[9]:
@@ -237,7 +200,7 @@ for t in range(proba.shape[0]):
     kl_nn_list.append(stats.entropy(true_bins_t, nn_probs_t))
 
 probs = pd.concat(probs_list)
-#%
+#%%
 # KL divergences
 # TODO Why doesn't nn test data have last tenor?
 kl_df = pd.DataFrame({'Tenor': range(0, t_end-1), \
@@ -247,7 +210,7 @@ kl_df = pd.DataFrame({'Tenor': range(0, t_end-1), \
 print kl_df.head()
 
 print kl_df.tail()                      
-#%%                      
+#%                      
 # Plot KL divergences
 gg.ggplot(kl_df, gg.aes(x='Tenor')) \
     + gg.geom_step(gg.aes(y='KL MLE', color = 'red')) \
