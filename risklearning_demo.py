@@ -179,42 +179,11 @@ proba = rl_net['probs_nn']
 
 ## In[9]:
 
-#% Convert proba from wide to long and append to other probs
 # TODO: Missing last tenor in nn proba (already in x_test, y_test)
-probs_list = []
-kl_mle_list = []
-kl_nn_list = []
-
-for t in range(proba.shape[0]):
-    nn_probs_t = proba[t]    
-    true_bins_t = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+t]), bin_tops)
-    probs_t = pd.DataFrame({'Tenor': t, 'Count Top': count_tops, \
-                            'Probs True': true_bins_t, \
-                            'Probs NN': nn_probs_t, \
-                            'Probs MLE': mle_probs_vals}, \
-                            index = range(t*len(count_tops), \
-                                    t*len(count_tops) + len(count_tops)))
-    probs_list.append(probs_t)
-    # Calculate KL divergences
-    kl_mle_list.append(stats.entropy(true_bins_t, mle_probs_vals))
-    kl_nn_list.append(stats.entropy(true_bins_t, nn_probs_t))
-
-probs = pd.concat(probs_list)
-#%%
-# KL divergences
-# TODO Why doesn't nn test data have last tenor?
-kl_df = pd.DataFrame({'Tenor': range(0, t_end-1), \
-                      'KL MLE': kl_mle_list, \
-                      'KL NN': kl_nn_list})
-
-print kl_df.head()
-
-print kl_df.tail()                      
-#%                      
-# Plot KL divergences
-gg.ggplot(kl_df, gg.aes(x='Tenor')) \
-    + gg.geom_step(gg.aes(y='KL MLE', color = 'red')) \
-    + gg.geom_step(gg.aes(y='KL NN', color = 'blue'))
+probs_kl_dict = rlf.probs_kl(proba, lambda_ts, t_start, bin_tops, mle_probs_vals)
+probs = probs_kl_dict['Probs']
+kl_mle_list = probs_kl_dict['KL MLE']
+kl_nn_list = probs_kl_dict['KL NN']
 #%% Compare pdf plots
 
 probs_head = probs[probs.Tenor < 4 ]
@@ -241,9 +210,33 @@ gg.ggplot(probs_tail, gg.aes(x='Count Top',weight='Probs True')) \
 
 #    + gg.geom_step(gg.aes(y='Probs NN')) \ 
 
+#%%
+# KL divergences
+# TODO Why doesn't nn test data have last tenor?
+kl_df = pd.DataFrame({'Tenor': range(0, t_end-1), \
+                      'KL MLE': kl_mle_list, \
+                      'KL NN': kl_nn_list})
+
+print kl_df.head()
+
+print kl_df.tail()                      
+#%                      
+# Plot KL divergences
+gg.ggplot(kl_df, gg.aes(x='Tenor')) \
+    + gg.geom_step(gg.aes(y='KL MLE', color = 'red')) \
+    + gg.geom_step(gg.aes(y='KL NN', color = 'blue'))
 
 #%%
+# Loop over different architectures, create panel plot
+nodes_list = [5, 10, 20, 50, 100, 150, 200]
+depths_list = [1,2,3,4]
 
+#%%
+depth = 1
+for n_nodes in nodes_list:
+    
+
+#%%
 #nn_probs = pd.DataFrame(proba, index = range(0,t_end-1), columns = [t-1 for t in bin_tops])
 # Heads (i.e. starting from present)
 #nn_probs.head()
