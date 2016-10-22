@@ -26,7 +26,8 @@ import scipy.stats as stats
 import math
 
 import ggplot as gg
-
+import matplotlib as mpl
+mpl.rcParams["figure.figsize"] = "11, 28" # or  whatever you want
 
 # ## Set up frequency distribution to generate samples
 
@@ -222,18 +223,17 @@ gg.ggplot(kl_df, gg.aes(x='Tenor')) \
 
 #%%
 # Loop over different architectures, create panel plot
-neurons_list = [10,50, 100, 150]
-depths_list = [1,2,3]
+neurons_list = [20,50]
+depths_list = [1,2]
 
 #%%
-depth = 1
 kl_df_list = []
 for depth in depths_list:
     for n_neurons in neurons_list:
         nn_arch = [n_neurons]*depth
         print nn_arch
         rl_net = rlf.rl_train_net(x_train, y_train, x_test, y_test, nn_arch, \
-                    n_epoch = 200)
+                    n_epoch = 2)
         proba = rl_net['probs_nn']
         probs_kl_dict = rlf.probs_kl(proba, lambda_ts, t_start, t_end, bin_tops, mle_probs_vals)
         probs = probs_kl_dict['Probs']
@@ -248,11 +248,16 @@ for depth in depths_list:
 kl_df_hyper = pd.concat(kl_df_list)
     
 #%% Plot
-gg.ggplot(kl_df_hyper, gg.aes(x='Tenor')) \
-    + gg.facet_grid('Architecture') \
-    + gg.geom_step(gg.aes(y='KL MLE', color = 'red')) \
-    + gg.geom_step(gg.aes(y='KL NN', color = 'blue'))
-
+kl_df_1layer = kl_df_hyper[kl_df_hyper['Hidden layers'] == 1]
+gg.ggplot(kl_df_1layer, gg.aes(x='Tenor')) \
+    + gg.geom_point(gg.aes(y='KL MLE', color = 'red')) \
+    + gg.geom_point(gg.aes(y='KL NN', color = 'blue'))
+#    + gg.geom_step(gg.aes(y='KL MLE', color = 'red')) \
+#    + gg.geom_step(gg.aes(y='KL NN', color = 'blue'))
+#%%
+from ggplot import meat
+meat_lng = pd.melt(meat, id_vars=['date'])
+gg.ggplot(gg.aes(x='date', y='value', colour='variable'), data=meat_lng) + gg.geom_line()
 
 #%%
 #nn_probs = pd.DataFrame(proba, index = range(0,t_end-1), columns = [t-1 for t in bin_tops])
