@@ -22,6 +22,7 @@ __copyright__ = "munichpavel"
 __license__ = "none"
 
 _logger = logging.getLogger(__name__)
+#%%
 
 def prep_count_data(counts_df, bin_tops):
     """
@@ -72,7 +73,7 @@ def prep_count_data(counts_df, bin_tops):
  
     # Create one df block per day with all l_codes, initialized to 0
     nn_list = [add_tenor(t, l_codes_unique) for t in 
-                range(int(loss_counts_nn['t'].min()), int(loss_counts_nn['t'].max()))]
+                range(int(loss_counts_nn['t'].min()), int(loss_counts_nn['t'].max()+1))]
 
     data_nn = pd.concat(nn_list, axis = 0)
     # Reindex to avoid duplicates
