@@ -163,12 +163,28 @@ def bin_probs(rv, bin_tops):
 
     
 #%%
-def rl_train_net(x_train, y_train, x_test, y_test, layer_shapes, \
-                batch_size = 32, n_epoch=10, \
+def rl_train_net(x_train, y_train, x_test, y_test, \
+                layer_shapes, batch_size = 32, n_epoch=10, \
                 optimizer='adagrad', dropout = 0.2,\
                 loss_fn = 'categorical_crossentropy'):
     """
-    
+    Trains nn with given train / test data and meta-parameters via keras / TensorFlow
+
+    Args:
+        x_train, y_train, x_test, y_test (numpy): training testing data
+        layer_shapes (list): defines hidden layer architecture, 
+            each entry is number of neurons per layer
+        batch_size, n_epoch (int): self-explanatory
+        optimizer (string or keras optimizer): either standard string flag or 
+            keras optimizer object
+        dropout (float): dropout rate
+        loss_fn (string): standard string flag for keras (for now)
+        
+    Returns:
+        Dictionary of keras model and predictive probabilities for testing set
+        
+        Note that training and testing are split via negative tenor (training) 
+        and non-negative tenor (testing)
     """
     from keras.models import Sequential
     from keras.layers import Dense, Activation, Dropout
@@ -197,9 +213,48 @@ def rl_train_net(x_train, y_train, x_test, y_test, layer_shapes, \
     # But with keras verbose = 1 for larger networks 
     model.fit(x_train, y_train,
           batch_size=batch_size, nb_epoch=n_epoch,
-          show_accuracy=True, verbose=2,
+          show_accuracy=True, verbose=0,
           validation_data=(x_test, y_test))
 
     proba = model.predict_proba(x_test, batch_size=32)
     
     return({'model': model, 'probs_nn': proba})    
+    
+def probs_kl(proba, lambda_ts, t_start, bin_tops, mle_probs_vals):
+    """
+    Converts test output of keras from wide to long and calculated KL divergences
+
+    Args:
+        proba (numpy array): prediction output of keras / TensorFlow
+        lambda_ts (mumpy array): intensity values for Poisson count process
+        bin_tops (list): upper bounds for binning of counts        
+            Recall numpy.digitize defines bins by bottom <= x < top
+        mle_probs_vals (list): Poisson pdf w.r.t. bins from MLE
+        
+    Returns:
+        Dictionary of (long) pandas df probs, 2 lists of KL divergences for 
+            test data (tenors >= 0)
+    """
+    #% Convert proba from wide to long and append to other probs
+    probs_list = []
+    kl_mle_list = []
+    kl_nn_list = []
+    
+    count_tops = [bin_top - 1 for bin_top in bin_tops]
+
+    for t in range(proba.shape[0]):
+        nn_probs_t = proba[t]    
+        true_bins_t = bin_probs(stats.poisson(lambda_ts[-t_start+t]), bin_tops)
+        probs_t = pd.DataFrame({'Tenor': t, 'Count Top': count_tops, \
+                                'Probs True': true_bins_t, \
+                                'Probs NN': nn_probs_t, \
+                                'Probs MLE': mle_probs_vals}, \
+                                index = range(t*len(count_tops), \
+                                    t*len(count_tops) + len(count_tops)))
+        probs_list.append(probs_t)
+    # Calculate KL divergences
+    kl_mle_list.append(stats.entropy(true_bins_t, mle_probs_vals))
+    kl_nn_list.append(stats.entropy(true_bins_t, nn_probs_t))
+
+    probs = pd.concat(probs_list)
+    return({'Probs': probs, 'KL MLE': kl_mle_list, 'KL NN': kl_nn_list})
