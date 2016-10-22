@@ -221,13 +221,14 @@ def rl_train_net(x_train, y_train, x_test, y_test, \
     
     return({'model': model, 'probs_nn': proba})    
     
-def probs_kl(proba, lambda_ts, t_start, bin_tops, mle_probs_vals):
+def probs_kl(proba, lambda_ts, t_start, t_end, bin_tops, mle_probs_vals):
     """
     Converts test output of keras from wide to long and calculated KL divergences
 
     Args:
         proba (numpy array): prediction output of keras / TensorFlow
         lambda_ts (mumpy array): intensity values for Poisson count process
+        t_start, t_end (int): starting (train) and ending (test) tenors
         bin_tops (list): upper bounds for binning of counts        
             Recall numpy.digitize defines bins by bottom <= x < top
         mle_probs_vals (list): Poisson pdf w.r.t. bins from MLE
@@ -253,9 +254,12 @@ def probs_kl(proba, lambda_ts, t_start, bin_tops, mle_probs_vals):
                                 index = range(t*len(count_tops), \
                                     t*len(count_tops) + len(count_tops)))
         probs_list.append(probs_t)
-    # Calculate KL divergences
-    kl_mle_list.append(stats.entropy(true_bins_t, mle_probs_vals))
-    kl_nn_list.append(stats.entropy(true_bins_t, nn_probs_t))
+        # Calculate KL divergences
+        kl_mle_list.append(stats.entropy(true_bins_t, mle_probs_vals))
+        kl_nn_list.append(stats.entropy(true_bins_t, nn_probs_t))
 
     probs = pd.concat(probs_list)
-    return({'Probs': probs, 'KL MLE': kl_mle_list, 'KL NN': kl_nn_list})
+    kl_df = pd.DataFrame({'Tenor': range(0, t_end), \
+                      'KL MLE': kl_mle_list, \
+                      'KL NN': kl_nn_list})
+    return({'Probs': probs, 'KL df': kl_df})
