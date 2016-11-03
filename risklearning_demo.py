@@ -13,12 +13,13 @@
 # 
 # 
 
-# In[1]:
+# In[25]:
 
 import risklearning.learning_frequency as rlf
+reload(rlf)
 
 
-# In[2]:
+# In[26]:
 
 import pandas as pd
 import numpy as np
@@ -26,12 +27,12 @@ import scipy.stats as stats
 import math
 
 import ggplot as gg
-import matplotlib as mpl
-mpl.rcParams["figure.figsize"] = "11, 28" # or  whatever you want
+get_ipython().magic(u'matplotlib inline')
+
 
 # ## Set up frequency distribution to generate samples
 
-# In[3]:
+# In[27]:
 
 tenors_horizon = 365 # (Time) tenors (e.g. 1 day) per model horizon (e.g. 1 year)
 
@@ -61,7 +62,7 @@ counts_sim_df = pd.DataFrame({'t': tenors,
                               'counts': counts})
 
 
-# In[4]:
+# In[28]:
 
 
 #%% Do MLE (simple average for Poisson process
@@ -76,8 +77,7 @@ counts_test =  (counts_sim_df[counts_sim_df.t >= 0]).groupby('OR Category L2').s
 # 
 # For the Poisson distribution, the MLE of the intensity (here lambda) is just the average of the counts per model horizon. In practice, OpRisk models sometimes take a weighted average, with the weight linearly decreasing over a period of years (see e.g. "LDA at Work" by Aue and Kalkbrener).
 
-# In[5]:
-
+# In[29]:
 
 lambdas_train = counts_train['counts']/n_tenors_train
 lambdas_test = counts_train['counts']/n_tenors_test
@@ -89,58 +89,12 @@ count_tops =[count - 1 for count in bin_tops]
 # Calculate bin probabilities from MLE poisson
 poi_mle = stats.poisson(lambdas_train)
 poi_bins = rlf.bin_probs(poi_mle, bin_tops)
-#%%    
+
 mle_probs = pd.DataFrame({'Count Top': count_tops, 'Probs': poi_bins})
-#mle_probs = pd.DataFrame(poi_bins, index = [t-1 for t in bin_tops], columns = ['Prob'])
-mle_probs.transpose()
+# For later comparison
 mle_probs_vals = list(mle_probs.Probs)
-# Visualize pdf (w.r.t. bins)
-gg.ggplot(mle_probs, gg.aes(x='Count Top',weight='Probs')) \
-    + gg.geom_bar()
-# Note bug re: stat = 'identity' in ggplot: 
-#   http://stackoverflow.com/questions/22599521/how-do-i-create-a-bar-chart-in-python-ggplot
 
-#%% Compare to "true"
-tenor = 0
-true_poi_bins_0 = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+tenor]), bin_tops)
 
-true_probs_0 = pd.DataFrame({'Tenor': tenor, 'Count Top': count_tops, \
-                            'Probs': true_poi_bins_0, 'Probs MLE': mle_probs_vals}, \
-                            index = range(tenor*len(count_tops), \
-                                    tenor*len(count_tops) + len(count_tops)))
-                            #%%
-tenor = t_end-1
-true_poi_bins_1 = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+tenor]), bin_tops)
-true_probs_1 = pd.DataFrame({'Tenor': tenor, 'Count Top': count_tops, \
-                            'Probs': true_poi_bins_1, 'Probs MLE': mle_probs_vals}, \
-                            index = range(tenor*len(count_tops), \
-                                    tenor*len(count_tops) + len(count_tops)))
-                                    
-#%% Now done below after NN
-true_list = []
-for t in range(0, t_end):
-#for t in range(0, 2):
-    true_poi_bins_t = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+t]), bin_tops)
-    true_probs_t = pd.DataFrame({'Tenor': t, 'Count Top': count_tops, \
-                            'Probs': true_poi_bins_0, 'Probs MLE': mle_probs_vals}, \
-                            index = range(t*len(count_tops), \
-                                    t*len(count_tops) + len(count_tops)))
-    true_list.append(true_probs_t)
-    
-true_probs = pd.concat(true_list)
-                            
-
-#%%
-true_probs = pd.concat([true_probs_0, true_probs_1])
-#%%
-gg.ggplot(true_probs, gg.aes(x='Count Top',weight='Probs')) \
-    + gg.facet_grid('Tenor') \
-    + gg.geom_bar() \
-    + gg.geom_step(gg.aes(y='Probs MLE')) \
-    + gg.scale_x_continuous(limits = (0,len(count_tops)))
-   # + gg.geom_bar(gg.aes(x='Count Top', weight='Probs MLE', position = 'dodge'))
-
-#%%
 # ## Prep simulated losses for neural network
 # 
 # For example
@@ -150,7 +104,7 @@ gg.ggplot(true_probs, gg.aes(x='Count Top',weight='Probs')) \
 # * Normalize tenors (i.e. scale so that first tenor maps to -1 with 0 preserved)
 # * Export as numpy arrays to feed into keras / tensorflow
 
-# In[6]:
+# In[30]:
 
 import warnings
 warnings.filterwarnings('ignore') # TODO: improve slicing to avoid warnings
@@ -160,121 +114,136 @@ x_train, y_train, x_test, y_test = rlf.prep_count_data(counts_sim_df, bin_tops)
 
 # ## Set up the network architecture and train
 # 
-# We use keras with TensorFlow backend.
+# We use keras with TensorFlow backend. Later we will look at optimizing metaparameters.
 # 
-# Note: there has been no real attempt yet to optimize metaparameters.
 
-# In[7]:
+# In[32]:
+
+#from keras.optimizers import SGD
+#sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+# rl_train_net is a wrapper for standard keras functionality that
+# makes it easier below to optimize hyperparameters
+rl_net = rlf.rl_train_net(x_train, y_train, x_test, y_test, [150],                     n_epoch = 200, optimizer = 'adagrad')
 
 
+# ## Neural network frequency distribution
+# 
+# If the neural network has learned anything, we will see that the probility distribution shifts over time to higher buckets.
 
-#%%
-from keras.optimizers import SGD
-sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+# In[33]:
 
-rl_net = rlf.rl_train_net(x_train, y_train, x_test, y_test, [150], \
-                    n_epoch = 200)
-#%%
 proba = rl_net['probs_nn']
 
 
-## In[9]:
+# In[34]:
 
-probs_kl_dict = rlf.probs_kl(proba, lambda_ts, t_start, t_end, bin_tops, mle_probs_vals)
-probs = probs_kl_dict['Probs']
-kl_df = probs_kl_dict['KL df']
-#kl_mle_list = probs_kl_dict['KL MLE']
-#kl_nn_list = probs_kl_dict['KL NN']
-#%% Compare pdf plots
+nn_probs = pd.DataFrame(proba, index = range(0,t_end), columns = [t-1 for t in bin_tops])
+# Heads (i.e. starting from present)
+nn_probs.head()
 
-probs_head = probs[probs.Tenor < 4 ]
 
-gg.ggplot(probs_head, gg.aes(x='Count Top',weight='Probs True')) \
-    + gg.facet_grid('Tenor') \
-    + gg.geom_bar() \
-    + gg.geom_step(gg.aes(y='Probs MLE', color = 'red')) \
-    + gg.geom_step(gg.aes(y='Probs NN', color = 'blue')) \
-    + gg.scale_x_continuous(limits = (0,len(count_tops)))
+# In[35]:
 
-#    + gg.geom_step(gg.aes(y='Probs NN')) \ 
+# Tails (i.e. going to end of model horizon of 1 yr)
+nn_probs.tail()
 
-#%%
+
+# In[36]:
+
+# And what MLE told us before
+mle_probs.transpose()
+
+
+# ## Evaluating the neural network
+# The above shows that the neural network learns that counts increase over time, but we want more than just the correct trend, we want to see how far the neural network is from the true distribution, and compare with the MLE fitted distribution.
+# 
+# We do this both numerically (Kullback-Leibler divergance) and graphically.
+
+# In[37]:
+
+#% Convert proba from wide to long and append to other probs
+mle_probs_vals = list(mle_probs.Probs)
+# TODO: Missing last tenor in nn proba (already in x_test, y_test)
+probs_list = []
+kl_mle_list = []
+kl_nn_list = []
+
+for t in range(proba.shape[0]):
+    nn_probs_t = proba[t]    
+    true_bins_t = rlf.bin_probs(stats.poisson(lambda_ts[-t_start+t]), bin_tops)
+    probs_t = pd.DataFrame({'Tenor': t, 'Count Top': count_tops,                             'Probs True': true_bins_t,                             'Probs NN': nn_probs_t,                             'Probs MLE': mle_probs_vals},                             index = range(t*len(count_tops),                                     t*len(count_tops) + len(count_tops)))
+    probs_list.append(probs_t)
+    # Calculate KL divergences
+    kl_mle_list.append(stats.entropy(true_bins_t, mle_probs_vals))
+    kl_nn_list.append(stats.entropy(true_bins_t, nn_probs_t))
+
+probs = pd.concat(probs_list)
+
+
+# In[38]:
 
 probs_tail = probs[probs.Tenor > 360 ]
 
-gg.ggplot(probs_tail, gg.aes(x='Count Top',weight='Probs True')) \
-    + gg.facet_grid('Tenor') \
-    + gg.geom_bar() \
-    + gg.geom_step(gg.aes(y='Probs MLE', color = 'red')) \
-    + gg.geom_step(gg.aes(y='Probs NN', color = 'blue')) \
-    + gg.scale_x_continuous(limits = (0,len(count_tops)))
+gg.ggplot(probs_tail, gg.aes(x='Count Top',weight='Probs True'))     + gg.facet_grid('Tenor')     + gg.geom_bar()     + gg.geom_step(gg.aes(y='Probs MLE', color = 'red'))     + gg.geom_step(gg.aes(y='Probs NN', color = 'blue'))     + gg.scale_x_continuous(limits = (0,len(count_tops)))
 
-#    + gg.geom_step(gg.aes(y='Probs NN')) \ 
 
-#%%
+
+# In[39]:
+
+# KL divergences
+
+kl_df = pd.DataFrame({'Tenor': range(0, t_end),                       'KL MLE': kl_mle_list,                       'KL NN': kl_nn_list})
+
 print kl_df.head()
 
 print kl_df.tail()                      
-#%%   
+#%                      
 # Plot KL divergences
-gg.ggplot(kl_df, gg.aes(x='Tenor')) \
-    + gg.geom_step(gg.aes(y='KL MLE', color = 'red')) \
-    + gg.geom_step(gg.aes(y='KL NN', color = 'blue'))
+gg.ggplot(kl_df, gg.aes(x='Tenor'))     + gg.geom_step(gg.aes(y='KL MLE', color = 'red'))     + gg.geom_step(gg.aes(y='KL NN', color = 'blue'))
 
-#%%
+
+# # Optimizing network architecture
+
+# In[48]:
+
+# More systematically with NN architecture
 # Loop over different architectures, create panel plot
-neurons_list = [20,50]
-depths_list = [1,2]
-
+#neurons_list = [10, 20,50,100, 200]
+neurons_list = [10, 20,50]
+depths_list = [1,2,3]
+optimizer = 'adagrad'
 #%%
 kl_df_list = []
 for depth in depths_list:
     for n_neurons in neurons_list:
         nn_arch = [n_neurons]*depth
-        print nn_arch
-        rl_net = rlf.rl_train_net(x_train, y_train, x_test, y_test, nn_arch, \
-                    n_epoch = 2)
+        print("Training " + str(depth) + " layer(s) of " + str(n_neurons) + " neurons")
+        rl_net = rlf.rl_train_net(x_train, y_train, x_test, y_test, nn_arch,                     n_epoch = 2, optimizer = optimizer)
         proba = rl_net['probs_nn']
+        print("\nPredicting with " + str(depth) + " layer(s) of " + str(n_neurons) + " neurons")
         probs_kl_dict = rlf.probs_kl(proba, lambda_ts, t_start, t_end, bin_tops, mle_probs_vals)
         probs = probs_kl_dict['Probs']
         kl_df_n = probs_kl_dict['KL df']
     
         kl_df_n['Hidden layers'] = depth
         kl_df_n['Neurons per layer'] = n_neurons
-        kl_df_n['Architecture'] = str(depth) + '_layers_of_' + str(n_neurons) \
-            + '_neurons'
+        kl_df_n['Architecture'] = str(depth) + '_layers_of_' + str(n_neurons)             + '_neurons'
+
         kl_df_list.append(kl_df_n)
  #%%
 kl_df_hyper = pd.concat(kl_df_list)
-    
-#%% Plot
-kl_df_1layer = kl_df_hyper[kl_df_hyper['Hidden layers'] == 1]
-gg.ggplot(kl_df_1layer, gg.aes(x='Tenor')) \
-    + gg.geom_point(gg.aes(y='KL MLE', color = 'red')) \
-    + gg.geom_point(gg.aes(y='KL NN', color = 'blue'))
-#    + gg.geom_step(gg.aes(y='KL MLE', color = 'red')) \
-#    + gg.geom_step(gg.aes(y='KL NN', color = 'blue'))
-#%%
-from ggplot import meat
-meat_lng = pd.melt(meat, id_vars=['date'])
-gg.ggplot(gg.aes(x='date', y='value', colour='variable'), data=meat_lng) + gg.geom_line()
-
-#%%
-#nn_probs = pd.DataFrame(proba, index = range(0,t_end-1), columns = [t-1 for t in bin_tops])
-# Heads (i.e. starting from present)
-#nn_probs.head()
 
 
-# In[10]:
+# In[52]:
 
-# Tails (i.e. going to end of model horizon of 1 yr)
-#nn_probs.tail()
-
-
-# In[11]:
-
-# And what MLE told us before
-#mle_probs.transpose()
+# Plot
+plot_file_stem = '/home/pavel/Code/Python/risklearning/plots/'
+for depth in depths_list:
+    kl_df_depth = kl_df_hyper[kl_df_hyper['Hidden layers'] == depth]
+    kl_plot = gg.ggplot(kl_df_depth, gg.aes(x='Tenor'))         + gg.geom_point(gg.aes(y='KL MLE', color = 'red'))         + gg.geom_point(gg.aes(y='KL NN', color = 'Neurons per layer'))         + gg.ggtitle('Architecture: ' + str(depth) + ' hidden layer(s)')
+    print(kl_plot)
+    kl_plot_name = plot_file_stem + 'kl_plot_' + str(depth) + 'deep_opt_' + optimizer + '.png'
+    gg.ggsave(kl_plot, kl_plot_name)
 
 
 # ## Summary and next steps
@@ -283,8 +252,6 @@ gg.ggplot(gg.aes(x='date', y='value', colour='variable'), data=meat_lng) + gg.ge
 # 
 # Next steps:
 # 
-# * Use better metric on generalization error that looking at probability tables (KS?)
-# * Optimize hyperparameters
 # * Simulate multiple, correlated Poisson processes
 # * Test non-linear non-stationarities
 # * Try recurrent neural network
