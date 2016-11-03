@@ -27,8 +27,9 @@ import scipy.stats as stats
 import math
 
 import ggplot as gg
-get_ipython().magic(u'matplotlib inline')
-
+#get_ipython().magic(u'matplotlib inline')
+import matplotlib
+matplotlib.style.use('ggplot')
 
 # ## Set up frequency distribution to generate samples
 
@@ -183,7 +184,6 @@ probs = pd.concat(probs_list)
 # In[38]:
 
 probs_tail = probs[probs.Tenor > 360 ]
-
 gg.ggplot(probs_tail, gg.aes(x='Count Top',weight='Probs True'))     + gg.facet_grid('Tenor')     + gg.geom_bar()     + gg.geom_step(gg.aes(y='Probs MLE', color = 'red'))     + gg.geom_step(gg.aes(y='Probs NN', color = 'blue'))     + gg.scale_x_continuous(limits = (0,len(count_tops)))
 
 
@@ -197,10 +197,12 @@ kl_df = pd.DataFrame({'Tenor': range(0, t_end),                       'KL MLE': 
 print kl_df.head()
 
 print kl_df.tail()                      
+
 #%                      
 # Plot KL divergences
-gg.ggplot(kl_df, gg.aes(x='Tenor'))     + gg.geom_step(gg.aes(y='KL MLE', color = 'red'))     + gg.geom_step(gg.aes(y='KL NN', color = 'blue'))
-
+#gg.ggplot(kl_df, gg.aes(x='Tenor'))     + gg.geom_step(gg.aes(y='KL MLE', color = 'red'))     + gg.geom_step(gg.aes(y='KL NN', color = 'blue'))
+kl_vals_df = kl_df[['KL MLE', 'KL NN']]
+kl_vals_df.plot()
 
 # # Optimizing network architecture
 
@@ -218,7 +220,7 @@ for depth in depths_list:
     for n_neurons in neurons_list:
         nn_arch = [n_neurons]*depth
         print("Training " + str(depth) + " layer(s) of " + str(n_neurons) + " neurons")
-        rl_net = rlf.rl_train_net(x_train, y_train, x_test, y_test, nn_arch,                     n_epoch = 2, optimizer = optimizer)
+        rl_net = rlf.rl_train_net(x_train, y_train, x_test, y_test, nn_arch, n_epoch = 2, optimizer = optimizer)
         proba = rl_net['probs_nn']
         print("\nPredicting with " + str(depth) + " layer(s) of " + str(n_neurons) + " neurons")
         probs_kl_dict = rlf.probs_kl(proba, lambda_ts, t_start, t_end, bin_tops, mle_probs_vals)
@@ -227,7 +229,7 @@ for depth in depths_list:
     
         kl_df_n['Hidden layers'] = depth
         kl_df_n['Neurons per layer'] = n_neurons
-        kl_df_n['Architecture'] = str(depth) + '_layers_of_' + str(n_neurons)             + '_neurons'
+        kl_df_n['Architecture'] = str(depth) + '_layers_of_' + str(n_neurons) + '_neurons'
 
         kl_df_list.append(kl_df_n)
  #%%
@@ -235,15 +237,26 @@ kl_df_hyper = pd.concat(kl_df_list)
 
 
 # In[52]:
+kl_mle = kl_df_n['KL MLE']
+depth = 1
+kl_df_depth = kl_df_hyper[kl_df_hyper['Hidden layers'] == depth]
+kl_depth_vals = kl_df_depth.pivot(index = 'Tenor', columns = 'Neurons per layer', values = 'KL NN')
+kl_depth_vals['KL MLE'] = kl_mle
+kl_depth_vals.plot()
 
+#%%
 # Plot
 plot_file_stem = '/home/pavel/Code/Python/risklearning/plots/'
 for depth in depths_list:
     kl_df_depth = kl_df_hyper[kl_df_hyper['Hidden layers'] == depth]
-    kl_plot = gg.ggplot(kl_df_depth, gg.aes(x='Tenor'))         + gg.geom_point(gg.aes(y='KL MLE', color = 'red'))         + gg.geom_point(gg.aes(y='KL NN', color = 'Neurons per layer'))         + gg.ggtitle('Architecture: ' + str(depth) + ' hidden layer(s)')
-    print(kl_plot)
-    kl_plot_name = plot_file_stem + 'kl_plot_' + str(depth) + 'deep_opt_' + optimizer + '.png'
-    gg.ggsave(kl_plot, kl_plot_name)
+    kl_df_depth = kl_df_hyper[kl_df_hyper['Hidden layers'] == depth]
+    kl_depth_vals = kl_df_depth.pivot(index = 'Tenor', columns = 'Neurons per layer', values = 'KL NN')
+    kl_depth_vals['KL MLE'] = kl_mle
+    kl_depth_vals.plot(title = 'Kullback-Leibler divergences from true distribution \n for ' + str(depth) + ' hidden layers')
+    #kl_plot = gg.ggplot(kl_df_depth, gg.aes(x='Tenor'))         + gg.geom_point(gg.aes(y='KL MLE', color = 'red'))         + gg.geom_point(gg.aes(y='KL NN', color = 'Neurons per layer'))         + gg.ggtitle('Architecture: ' + str(depth) + ' hidden layer(s)')
+    #print(kl_plot)
+    #kl_plot_name = plot_file_stem + 'kl_plot_' + str(depth) + 'deep_opt_' + optimizer + '.png'
+    #gg.ggsave(kl_plot, kl_plot_name)
 
 
 # ## Summary and next steps
