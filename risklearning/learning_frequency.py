@@ -46,8 +46,8 @@ def prep_count_data(counts_df, bin_tops):
 
     # Encode level 1 and level 2 loss categories
     le = preprocessing.LabelEncoder()
-    l1_codes = le.fit_transform(counts_df['OR Category L1'])
-    l2_codes = le.fit_transform(counts_df['OR Category L2'])
+    l1_codes = le.fit_transform(counts_df['L1_cat'])
+    l2_codes = le.fit_transform(counts_df['L2_cat'])
     ls = pd.DataFrame({'l1_codes': l1_codes, 'l2_codes': l2_codes})
 
     enc = preprocessing.OneHotEncoder(sparse = False)
