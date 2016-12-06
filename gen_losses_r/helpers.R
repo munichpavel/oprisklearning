@@ -30,14 +30,14 @@ gen_or_events = function(lambda_init, lambda_final, tenors, or_cats, copula, out
   counts_df$t = tenors
   
   # Gather
-  counts_long = counts_df %>% gather(L2_cat, count, 1:n_cats) %>% arrange(t)
+  counts_long = counts_df %>% gather(L2_cat, counts, 1:n_cats) %>% arrange(t)
   
   
   l1s = sapply(counts_long$L2, function(l2){assign_l1(l2, or_cats)})
   counts_long$L1_cat = l1s
-  counts_out = counts_long[, c('t', 'L1_cat', 'L2_cat', 'count')]
+  counts_out = counts_long[, c('t', 'L1_cat', 'L2_cat', 'counts')]
   # Write to tab-delimited file
-  write.table(counts_out, file = paste0('data/', out_stem, '.txt'), row.names = F)
+  write.csv(counts_out, file = paste0('data/', out_stem, '.csv'), row.names = F)
   return(counts_out)
   
 }
