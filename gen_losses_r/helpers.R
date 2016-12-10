@@ -18,7 +18,10 @@ gen_or_events = function(lambda_init, lambda_final, tenors, or_cats, copula, out
   n_cats = dim(or_cats)[1]
   # Make linear grid from lambda_init to lambda_final
   lambdas = sapply(1:length(lambda_init), function(i) seq(lambda_init[i], lambda_final[i], length.out = n_tenors))
-  
+  lambdas_df = data.frame(lambdas)
+  colnames(lambdas_df) = or_cats$L2_cat
+  # Write to file to read-in along with data
+  write.csv(lambdas_df, file = paste0('data/lambdas_', out_stem, '.csv'), row.names = F)
   if (typeof(copula) == 'S4'){ # Check if S4 class, hopefully copula
     counts_df = data.frame(t(apply(lambdas, MARGIN = 1,
                                    FUN = function(lambda_vec) sample_pois_counts(lambda_vec, nc3))))
