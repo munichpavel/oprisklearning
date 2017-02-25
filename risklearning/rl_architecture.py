@@ -1,3 +1,5 @@
+# Copyright 2017 Paul Larsen. All rights reserved, modified from TensorFlow mnist.py tutorial,
+# with the same licensing as the original, copied in below:
 # Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Builds the MNIST network.
+"""Builds the risklearning network.
 Implements the inference/loss/training pattern for model building.
 1. inference() - Builds the model as far as is required for running the network
 forward to make predictions.
@@ -31,18 +33,19 @@ import math
 
 import tensorflow as tf
 
-# The MNIST dataset has 10 classes, representing the digits 0 through 9.
-NUM_CLASSES = 10
+# The risklearning counts dataset has 12 classes, representing the current binning.
+# Warning: subject to change!
+# TODO: softcode this!
+NUM_CLASSES = 12
 
-# The MNIST images are always 28x28 pixels.
-IMAGE_SIZE = 28
-IMAGE_PIXELS = IMAGE_SIZE * IMAGE_SIZE
+# The risklearning feature size is also subject to change
+# TODO: softcode this!
+NUM_FEATURES = 3
 
-
-def inference(images, hidden1_units, hidden2_units):
-  """Build the MNIST model up to where it may be used for inference.
+def inference(counts, hidden1_units, hidden2_units):
+  """Build the risklearning model up to where it may be used for inference.
   Args:
-    images: Images placeholder, from inputs().
+    counts: Event counts placeholder, from inputs().
     hidden1_units: Size of the first hidden layer.
     hidden2_units: Size of the second hidden layer.
   Returns:
@@ -51,12 +54,13 @@ def inference(images, hidden1_units, hidden2_units):
   # Hidden 1
   with tf.name_scope('hidden1'):
     weights = tf.Variable(
-        tf.truncated_normal([IMAGE_PIXELS, hidden1_units],
-                            stddev=1.0 / math.sqrt(float(IMAGE_PIXELS))),
+        tf.truncated_normal([NUM_FEATURES, hidden1_units],
+                            stddev=1.0 / math.sqrt(float(NUM_FEATURES))),
         name='weights')
+    # TODO: Really initialize to 0???
     biases = tf.Variable(tf.zeros([hidden1_units]),
                          name='biases')
-    hidden1 = tf.nn.relu(tf.matmul(images, weights) + biases)
+    hidden1 = tf.nn.relu(tf.matmul(counts, weights) + biases)
   # Hidden 2
   with tf.name_scope('hidden2'):
     weights = tf.Variable(
@@ -87,6 +91,7 @@ def loss(logits, labels):
     loss: Loss tensor of type float.
   """
   labels = tf.to_int64(labels)
+  # TODO: Check if sparse is overkill for now
   cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
       labels=labels, logits=logits, name='xentropy')
   return tf.reduce_mean(cross_entropy, name='xentropy_mean')
@@ -132,4 +137,4 @@ def evaluation(logits, labels):
   # of all logits for that example.
   correct = tf.nn.in_top_k(logits, labels, 1)
   # Return the number of true entries.
-return tf.reduce_sum(tf.cast(correct, tf.int32))
+  return tf.reduce_sum(tf.cast(correct, tf.int32))
