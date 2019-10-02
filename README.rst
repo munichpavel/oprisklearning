@@ -2,7 +2,7 @@
 risklearning
 ============
 
-NOTE: This repo is no longer mainted.
+NOTE: This repo is no longer maintained.
 
 A neural network implementation of operational risk modeling.
 
